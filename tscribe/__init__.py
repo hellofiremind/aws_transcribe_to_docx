@@ -15,7 +15,7 @@ import logging
 
 
 def convert_time_stamp(timestamp: str) -> str:
-    """ Function to help convert timestamps from s to H:M:S """
+    """Function to help convert timestamps from s to H:M:S"""
     delta = datetime.timedelta(seconds=float(timestamp))
     seconds = delta - datetime.timedelta(microseconds=delta.microseconds)
     return str(seconds)
@@ -64,7 +64,6 @@ def calculate_confidence_statistics(data: dict) -> dict:
     # Confidence count
     for item in data["results"]["items"]:
         if item["type"] == "pronunciation":
-
             stats["timestamps"].append(float(item["start_time"]))
 
             confidence_decimal = float(item["alternatives"][0]["confidence"])
@@ -123,7 +122,6 @@ def decode_transcript_to_dataframe(data: str):
 
         # A segment is a blob of pronounciation and punctuation by an individual speaker
         for segment in data["results"]["speaker_labels"]["segments"]:
-
             # If there is content in the segment, add a row, write the time and speaker
             if len(segment["items"]) > 0:
                 decoded_data["start_time"].append(
@@ -135,7 +133,6 @@ def decode_transcript_to_dataframe(data: str):
 
                 # For each word in the segment...
                 for word in segment["items"]:
-
                     # Get the word with the highest confidence
                     pronunciations = list(
                         filter(
@@ -151,7 +148,9 @@ def decode_transcript_to_dataframe(data: str):
                         )
                     )
                     result = sorted(
-                        word_result[-1]["alternatives"], key=lambda x: x["confidence"]
+                        word_result[-1]["alternatives"],
+                        key=lambda x: x.get("confidence")
+                        or x["redactions"][0]["confidence"],
                     )[-1]
 
                     # Write the word
@@ -176,7 +175,6 @@ def decode_transcript_to_dataframe(data: str):
 
         # For each word in the results
         for word in data["results"]["items"]:
-
             # Punctuation items do not include a start_time
             if "start_time" not in word.keys():
                 continue
@@ -195,7 +193,9 @@ def decode_transcript_to_dataframe(data: str):
                 and decoded_data["speaker"][-1] == channel
             ):
                 current_word = sorted(
-                    word["alternatives"], key=lambda x: x["confidence"]
+                    word["alternatives"],
+                    key=lambda x: x.get("confidence")
+                    or x["redactions"][0]["confidence"],
                 )[-1]
                 decoded_data["comment"][-1] += " " + current_word["content"]
 
@@ -207,7 +207,9 @@ def decode_transcript_to_dataframe(data: str):
                 decoded_data["end_time"].append(convert_time_stamp(word["end_time"]))
                 decoded_data["speaker"].append(channel)
                 current_word = sorted(
-                    word["alternatives"], key=lambda x: x["confidence"]
+                    word["alternatives"],
+                    key=lambda x: x.get("confidence")
+                    or x["redactions"][0]["confidence"],
                 )[-1]
                 decoded_data["comment"].append(current_word["content"])
 
@@ -241,9 +243,11 @@ def decode_transcript_to_dataframe(data: str):
 
         # Add words
         for word in data["results"]["items"]:
-
             # Get the word with the highest confidence
-            result = sorted(word["alternatives"], key=lambda x: x["confidence"])[-1]
+            result = sorted(
+                word["alternatives"],
+                key=lambda x: x.get("confidence") or x["redactions"][0]["confidence"],
+            )[-1]
 
             # Write the word
             decoded_data["comment"][-1] += " " + result["content"]
@@ -271,7 +275,7 @@ def decode_transcript_to_dataframe(data: str):
 
 
 def write_docx(data, filename, **kwargs):
-    """ Write a transcript from the .json transcription file. """
+    """Write a transcript from the .json transcription file."""
     logging.info("Writing docx")
 
     output_filename = Path(filename)
@@ -380,7 +384,6 @@ def write_docx(data, filename, **kwargs):
 
         # A segment is a blob of pronounciation and punctuation by an individual speaker
         for segment in data["results"]["speaker_labels"]["segments"]:
-
             # If there is content in the segment, add a row, write the time and speaker
             if len(segment["items"]) > 0:
                 row_cells = table.add_row().cells
@@ -389,7 +392,6 @@ def write_docx(data, filename, **kwargs):
 
                 # For each word in the segment...
                 for word in segment["items"]:
-
                     # Get the word with the highest confidence
                     pronunciations = list(
                         filter(
@@ -405,7 +407,9 @@ def write_docx(data, filename, **kwargs):
                         )
                     )
                     result = sorted(
-                        word_result[-1]["alternatives"], key=lambda x: x["confidence"]
+                        word_result[-1]["alternatives"],
+                        key=lambda x: x.get("confidence")
+                        or x["redactions"][0]["confidence"],
                     )[-1]
 
                     # Write the word
@@ -434,7 +438,6 @@ def write_docx(data, filename, **kwargs):
         logging.debug("Transcript has channel_labels")
 
         for word in data["results"]["items"]:
-
             # Punctuation items do not include a start_time
             if "start_time" not in word.keys():
                 continue
@@ -450,7 +453,9 @@ def write_docx(data, filename, **kwargs):
             # If still on the same channel, add the current word to the line
             if table.cell(-1, 1).text == channel:
                 current_word = sorted(
-                    word["alternatives"], key=lambda x: x["confidence"]
+                    word["alternatives"],
+                    key=lambda x: x.get("confidence")
+                    or x["redactions"][0]["confidence"],
                 )[-1]
 
                 run = (
@@ -465,7 +470,9 @@ def write_docx(data, filename, **kwargs):
             # Else start a new line
             else:
                 current_word = sorted(
-                    word["alternatives"], key=lambda x: x["confidence"]
+                    word["alternatives"],
+                    key=lambda x: x.get("confidence")
+                    or x["redactions"][0]["confidence"],
                 )[-1]
 
                 row_cells = table.add_row().cells
@@ -499,9 +506,11 @@ def write_docx(data, filename, **kwargs):
 
         # Add words
         for word in data["results"]["items"]:
-
             # Get the word with the highest confidence
-            result = sorted(word["alternatives"], key=lambda x: x["confidence"])[-1]
+            result = sorted(
+                word["alternatives"],
+                key=lambda x: x.get("confidence") or x["redactions"][0]["confidence"],
+            )[-1]
 
             # Write the word
             run = row_cells[2].paragraphs[0].add_run(" " + result["content"])
@@ -542,10 +551,8 @@ def write_vtt(dataframe, filename):
 
     # Iterate through dataframe
     for _, row in dataframe.iterrows():
-
         # If the segment has 80 or less characters
         if len(row["comment"]) <= 80:
-
             caption = webvtt.Caption(
                 start=row["start_time"] + ".000",
                 end=row["end_time"] + ".000",
@@ -554,7 +561,6 @@ def write_vtt(dataframe, filename):
 
         # If the segment has more than 80 characters, use lines
         else:
-
             lines = []
             text = row["comment"]
 
