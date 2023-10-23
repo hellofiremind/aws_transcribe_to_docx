@@ -269,7 +269,7 @@ def decode_transcript_to_dataframe(data: str):
     )
 
     # Clean leading whitespace
-    dataframe["comment"] = dataframe["comment"].str.lstrip()
+    dataframe["comment"] = dataframe["comment"].astype(str).str.lstrip()
 
     return dataframe
 
